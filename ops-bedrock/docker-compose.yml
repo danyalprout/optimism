@@ -30,7 +30,7 @@ services:
       - s3
     entrypoint: >
       /bin/sh -c "
-      /usr/bin/mc config host add myminio http://127.0.0.1:9000 ROOTUSER SECRET123;
+      /usr/bin/mc config host add myminio http://172.17.0.1:9000 ROOTUSER SECRET123;
       /usr/bin/mc mb -p myminio/l3-batch-inbox;
       exit 0;
       "
