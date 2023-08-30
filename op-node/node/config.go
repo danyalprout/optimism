@@ -19,6 +19,11 @@ type Config struct {
 	L2     L2EndpointSetup
 	L2Sync L2SyncEndpointSetup
 
+	S3Url    string
+	S3Bucket string
+	S3Key    string
+	S3Secret string
+
 	Driver driver.Config
 
 	Rollup rollup.Config

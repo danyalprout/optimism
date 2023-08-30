@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -199,7 +200,13 @@ func (n *OpNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Logger
 		return err
 	}
 
-	n.l2Driver = driver.NewDriver(&cfg.Driver, &cfg.Rollup, n.l2Source, n.l1Source, n, n, n.log, snapshotLog, n.metrics, cfg.ConfigPersistence)
+	c := rollup.S3Config{
+		S3Url:    cfg.S3Url,
+		S3Bucket: cfg.S3Bucket,
+		S3Key:    cfg.S3Key,
+		S3Secret: cfg.S3Secret,
+	}
+	n.l2Driver = driver.NewDriver(c, &cfg.Driver, &cfg.Rollup, n.l2Source, n.l1Source, n, n, n.log, snapshotLog, n.metrics, cfg.ConfigPersistence)
 
 	return nil
 }

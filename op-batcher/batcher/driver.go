@@ -1,15 +1,22 @@
 package batcher
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/ethereum/go-ethereum/crypto"
 	"io"
 	"math/big"
 	_ "net/http/pprof"
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -41,6 +48,32 @@ type BatchSubmitter struct {
 	lastL1Tip       eth.L1BlockRef
 
 	state *channelManager
+}
+
+func s3Session(cfg CLIConfig) *session.Session {
+	region := "us-east-1"
+	resolver := func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
+		if service == endpoints.S3ServiceID {
+			return endpoints.ResolvedEndpoint{
+				URL: cfg.S3Url,
+			}, nil
+		}
+
+		return endpoints.DefaultResolver().EndpointFor(service, region, optFns...)
+	}
+
+	sess, err := session.NewSession(&aws.Config{
+		S3ForcePathStyle: aws.Bool(true),
+		Region:           &region,
+		EndpointResolver: endpoints.ResolverFunc(resolver),
+		Credentials:      credentials.NewStaticCredentials(cfg.S3Key, cfg.S3Secret, ""),
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return sess
 }
 
 // NewBatchSubmitterFromCLIConfig initializes the BatchSubmitter, gathering any resources
@@ -75,6 +108,8 @@ func NewBatchSubmitterFromCLIConfig(cfg CLIConfig, l log.Logger, m metrics.Metri
 		return nil, err
 	}
 
+	uploader := s3manager.NewUploader(s3Session(cfg))
+
 	batcherCfg := Config{
 		L1Client:               l1Client,
 		L2Client:               l2Client,
@@ -84,6 +119,8 @@ func NewBatchSubmitterFromCLIConfig(cfg CLIConfig, l log.Logger, m metrics.Metri
 		NetworkTimeout:         cfg.TxMgrConfig.NetworkTimeout,
 		TxManager:              txManager,
 		Rollup:                 rcfg,
+		Uploader:               uploader,
+		S3Bucket:               cfg.S3Bucket,
 		Channel: ChannelConfig{
 			SeqWindowSize:      rcfg.SeqWindowSize,
 			ChannelTimeout:     rcfg.ChannelTimeout,
@@ -354,6 +391,8 @@ func (l *BatchSubmitter) publishStateToL1(queue *txmgr.Queue[txData], receiptsCh
 
 // publishTxToL1 submits a single state tx to the L1
 func (l *BatchSubmitter) publishTxToL1(ctx context.Context, queue *txmgr.Queue[txData], receiptsCh chan txmgr.TxReceipt[txData]) error {
+	l.log.Info("pushing tx to l1")
+
 	// send all available transactions
 	l1tip, err := l.l1Tip(ctx)
 	if err != nil {
@@ -372,17 +411,57 @@ func (l *BatchSubmitter) publishTxToL1(ctx context.Context, queue *txmgr.Queue[t
 		return err
 	}
 
-	l.sendTransaction(txdata, queue, receiptsCh)
-	return nil
+	/*
+			txData = ..... // big variable w/ all the data
+			onchain: txData Expensive O(N) N == number of txns
+
+			----
+
+			txData = ..... // big variable w/ all the data
+			s3: filename[hash(txData)] => txData  // O(N)
+			onchain: hash(txData) // O(1)
+
+		--- writing
+			d. Make a hash function for []bytes() [done]
+			d. Change the name of the file that we upload to S3 to be the hash key
+			3. Change the data we write to the chain
+				1. Write the hash instead of writing the data
+		--- reading
+			d. Read the hash from the chain [should happen magically]
+			5. Use the hash to lookup the file in S3
+			6. Return the S3 data instead of the hash
+	*/
+
+	dataHash := crypto.Keccak256Hash(txdata.Bytes())
+	fileName := dataHash.String()
+
+	l.log.Info("pre-unploading to s3", "filename", fileName)
+
+	result, err := l.Uploader.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(l.S3Bucket),
+		Key:    aws.String(fileName),
+		Body:   bytes.NewReader(txdata.Bytes()),
+	})
+
+	l.log.Info("post-unploading to s3")
+
+	if err != nil {
+		l.log.Error("unable to upload file to s3", "err", err)
+		return err
+	} else {
+		l.log.Info("uploaded file to s3", "filename", fileName, "uploadId", result.UploadID)
+		l.sendTransaction(txdata, dataHash.Bytes(), queue, receiptsCh)
+		return nil
+	}
+
 }
 
 // sendTransaction creates & submits a transaction to the batch inbox address with the given `data`.
 // It currently uses the underlying `txmgr` to handle transaction sending & price management.
 // This is a blocking method. It should not be called concurrently.
-func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txData], receiptsCh chan txmgr.TxReceipt[txData]) {
+func (l *BatchSubmitter) sendTransaction(txdata txData, dataHash []byte, queue *txmgr.Queue[txData], receiptsCh chan txmgr.TxReceipt[txData]) {
 	// Do the gas estimation offline. A value of 0 will cause the [txmgr] to estimate the gas limit.
-	data := txdata.Bytes()
-	intrinsicGas, err := core.IntrinsicGas(data, nil, false, true, true, false)
+	intrinsicGas, err := core.IntrinsicGas(dataHash, nil, false, true, true, false)
 	if err != nil {
 		l.log.Error("Failed to calculate intrinsic gas", "error", err)
 		return
@@ -390,9 +469,10 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txDat
 
 	candidate := txmgr.TxCandidate{
 		To:       &l.Rollup.BatchInboxAddress,
-		TxData:   data,
+		TxData:   dataHash,
 		GasLimit: intrinsicGas,
 	}
+
 	queue.Send(txdata, candidate, receiptsCh)
 }
 

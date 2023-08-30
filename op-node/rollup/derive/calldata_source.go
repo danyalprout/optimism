@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"io"
+	"io/ioutil"
 
 	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -30,15 +32,17 @@ type DataSourceFactory struct {
 	log     log.Logger
 	cfg     *rollup.Config
 	fetcher L1TransactionFetcher
+	s3      *s3.S3
+	bucket  string
 }
 
-func NewDataSourceFactory(log log.Logger, cfg *rollup.Config, fetcher L1TransactionFetcher) *DataSourceFactory {
-	return &DataSourceFactory{log: log, cfg: cfg, fetcher: fetcher}
+func NewDataSourceFactory(log log.Logger, cfg *rollup.Config, fetcher L1TransactionFetcher, svc *s3.S3, bucket string) *DataSourceFactory {
+	return &DataSourceFactory{log: log, cfg: cfg, fetcher: fetcher, s3: svc, bucket: bucket}
 }
 
 // OpenData returns a DataIter. This struct implements the `Next` function.
 func (ds *DataSourceFactory) OpenData(ctx context.Context, id eth.BlockID, batcherAddr common.Address) DataIter {
-	return NewDataSource(ctx, ds.log, ds.cfg, ds.fetcher, id, batcherAddr)
+	return NewDataSource(ctx, ds.log, ds.cfg, ds.fetcher, id, batcherAddr, ds.s3, ds.bucket)
 }
 
 // DataSource is a fault tolerant approach to fetching data.
@@ -55,11 +59,13 @@ type DataSource struct {
 	log     log.Logger
 
 	batcherAddr common.Address
+	s3          *s3.S3
+	bucket      string
 }
 
 // NewDataSource creates a new calldata source. It suppresses errors in fetching the L1 block if they occur.
 // If there is an error, it will attempt to fetch the result on the next call to `Next`.
-func NewDataSource(ctx context.Context, log log.Logger, cfg *rollup.Config, fetcher L1TransactionFetcher, block eth.BlockID, batcherAddr common.Address) DataIter {
+func NewDataSource(ctx context.Context, log log.Logger, cfg *rollup.Config, fetcher L1TransactionFetcher, block eth.BlockID, batcherAddr common.Address, s *s3.S3, bucket string) DataIter {
 	_, txs, err := fetcher.InfoAndTxsByHash(ctx, block.Hash)
 	if err != nil {
 		return &DataSource{
@@ -69,11 +75,17 @@ func NewDataSource(ctx context.Context, log log.Logger, cfg *rollup.Config, fetc
 			fetcher:     fetcher,
 			log:         log,
 			batcherAddr: batcherAddr,
+			s3:          s,
+			bucket:      bucket,
 		}
 	} else {
+		// DANYAL
 		return &DataSource{
-			open: true,
-			data: DataFromEVMTransactions(cfg, batcherAddr, txs, log.New("origin", block)),
+			open:   true,
+			log:    log,
+			data:   DataFromEVMTransactions(cfg, batcherAddr, txs, log.New("origin", block)),
+			s3:     s,
+			bucket: bucket,
 		}
 	}
 }
@@ -96,8 +108,30 @@ func (ds *DataSource) Next(ctx context.Context) (eth.Data, error) {
 		return nil, io.EOF
 	} else {
 		data := ds.data[0]
+
+		fileName := data.String()
+
+		ds.log.Info("ANGEL HASH", "hash", fileName)
+
+		out, err := ds.s3.GetObject(&s3.GetObjectInput{
+			Bucket: aws.String(ds.bucket),
+			Key:    aws.String(fileName),
+		})
+
+		if err != nil {
+			ds.log.Error("ANGEL couldn't load from s3", "error", err)
+			return nil, NewTemporaryError(fmt.Errorf("couldn't load from s3: %w", err))
+		}
+
+		d, e := ioutil.ReadAll(out.Body)
+		if e != nil {
+			ds.log.Error("ANGEL couldn't read from s3 file", "error", err)
+			return nil, NewTemporaryError(fmt.Errorf("couldn't read data from s3 file: %w", err))
+		}
+
+		ds.log.Info("ANGEL IT ALL WORKED")
 		ds.data = ds.data[1:]
-		return data, nil
+		return d, nil
 	}
 }
 
@@ -119,6 +153,8 @@ func DataFromEVMTransactions(config *rollup.Config, batcherAddr common.Address, 
 				log.Warn("tx in inbox with unauthorized submitter", "index", j, "err", err)
 				continue // not an authorized batch submitter, ignore
 			}
+
+			// DANYAL!
 			out = append(out, tx.Data())
 		}
 	}

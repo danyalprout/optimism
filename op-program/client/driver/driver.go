@@ -35,7 +35,7 @@ type Driver struct {
 }
 
 func NewDriver(logger log.Logger, cfg *rollup.Config, l1Source derive.L1Fetcher, l2Source L2Source, targetBlockNum uint64) *Driver {
-	pipeline := derive.NewDerivationPipeline(logger, cfg, l1Source, l2Source, metrics.NoopMetrics)
+	pipeline := derive.NewDerivationPipeline(nil, logger, cfg, l1Source, l2Source, metrics.NoopMetrics)
 	pipeline.Reset()
 	return &Driver{
 		logger:         logger,

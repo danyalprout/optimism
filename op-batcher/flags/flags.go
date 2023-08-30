@@ -39,6 +39,27 @@ var (
 		Usage:   "HTTP provider URL for Rollup node",
 		EnvVars: prefixEnvVars("ROLLUP_RPC"),
 	}
+	S3URL = &cli.StringFlag{
+		Name:    "s3-url",
+		Usage:   "todo",
+		EnvVars: prefixEnvVars("S3_URL"),
+	}
+	S3Bucket = &cli.StringFlag{
+		Name:    "s3-bucket",
+		Usage:   "todo",
+		EnvVars: prefixEnvVars("S3_BUCKET"),
+	}
+	S3Key = &cli.StringFlag{
+		Name:    "s3-key",
+		Usage:   "todo",
+		EnvVars: prefixEnvVars("S3_KEY"),
+	}
+	S3Secret = &cli.StringFlag{
+		Name:    "s3-secret",
+		Usage:   "todo",
+		EnvVars: prefixEnvVars("S3_SECRET"),
+	}
+
 	// Optional flags
 	SubSafetyMarginFlag = &cli.Uint64Flag{
 		Name: "sub-safety-margin",
@@ -85,6 +106,10 @@ var requiredFlags = []cli.Flag{
 	L1EthRpcFlag,
 	L2EthRpcFlag,
 	RollupRpcFlag,
+	S3URL,
+	S3Bucket,
+	S3Key,
+	S3Secret,
 }
 
 var optionalFlags = []cli.Flag{

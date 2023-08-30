@@ -49,6 +49,13 @@ type Genesis struct {
 	SystemConfig eth.SystemConfig `json:"system_config"`
 }
 
+type S3Config struct {
+	S3Url    string
+	S3Bucket string
+	S3Key    string
+	S3Secret string
+}
+
 type Config struct {
 	// Genesis anchor point of the rollup
 	Genesis Genesis `json:"genesis"`

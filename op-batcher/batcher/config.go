@@ -1,6 +1,7 @@
 package batcher
 
 import (
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -36,6 +37,10 @@ type Config struct {
 
 	// Channel builder parameters
 	Channel ChannelConfig
+
+	// Uploads to S3 -- hack
+	Uploader *s3manager.Uploader
+	S3Bucket string
 }
 
 // Check ensures that the [Config] is valid.
@@ -58,6 +63,11 @@ type CLIConfig struct {
 
 	// RollupRpc is the HTTP provider URL for the L2 rollup node.
 	RollupRpc string
+
+	S3Url    string
+	S3Bucket string
+	S3Key    string
+	S3Secret string
 
 	// MaxChannelDuration is the maximum duration (in #L1-blocks) to keep a
 	// channel open. This allows to more eagerly send batcher transactions
@@ -123,6 +133,11 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 		RollupRpc:       ctx.String(flags.RollupRpcFlag.Name),
 		SubSafetyMargin: ctx.Uint64(flags.SubSafetyMarginFlag.Name),
 		PollInterval:    ctx.Duration(flags.PollIntervalFlag.Name),
+
+		S3Url:    ctx.String(flags.S3URL.Name),
+		S3Bucket: ctx.String(flags.S3Bucket.Name),
+		S3Key:    ctx.String(flags.S3Key.Name),
+		S3Secret: ctx.String(flags.S3Secret.Name),
 
 		/* Optional Flags */
 		MaxPendingTransactions: ctx.Uint64(flags.MaxPendingTransactionsFlag.Name),

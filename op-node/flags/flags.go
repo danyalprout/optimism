@@ -44,6 +44,28 @@ var (
 		Usage:   fmt.Sprintf("Predefined network selection. Available networks: %s", strings.Join(chaincfg.AvailableNetworks(), ", ")),
 		EnvVars: prefixEnvVars("NETWORK"),
 	}
+
+	S3URL = &cli.StringFlag{
+		Name:    "s3-url",
+		Usage:   "todo",
+		EnvVars: prefixEnvVars("S3_URL"),
+	}
+	S3Bucket = &cli.StringFlag{
+		Name:    "s3-bucket",
+		Usage:   "todo",
+		EnvVars: prefixEnvVars("S3_BUCKET"),
+	}
+	S3Key = &cli.StringFlag{
+		Name:    "s3-key",
+		Usage:   "todo",
+		EnvVars: prefixEnvVars("S3_KEY"),
+	}
+	S3Secret = &cli.StringFlag{
+		Name:    "s3-secret",
+		Usage:   "todo",
+		EnvVars: prefixEnvVars("S3_SECRET"),
+	}
+
 	/* Optional Flags */
 	RPCListenAddr = &cli.StringFlag{
 		Name:    "rpc.addr",
@@ -219,6 +241,10 @@ var (
 var requiredFlags = []cli.Flag{
 	L1NodeAddr,
 	L2EngineAddr,
+	S3URL,
+	S3Bucket,
+	S3Key,
+	S3Secret,
 }
 
 var optionalFlags = []cli.Flag{

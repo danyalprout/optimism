@@ -5,17 +5,18 @@ ARG VERSION=v0.0.0
 RUN apk add --no-cache make gcc musl-dev linux-headers git jq bash
 
 # build op-node with the shared go.mod & go.sum files
-COPY ./op-node /app/op-node
-COPY ./op-chain-ops /app/op-chain-ops
-COPY ./op-service /app/op-service
-COPY ./op-bindings /app/op-bindings
 COPY ./go.mod /app/go.mod
 COPY ./go.sum /app/go.sum
-COPY ./.git /app/.git
 
 WORKDIR /app/op-node
 
 RUN go mod download
+
+COPY ./op-node /app/op-node
+COPY ./op-chain-ops /app/op-chain-ops
+COPY ./op-service /app/op-service
+COPY ./op-bindings /app/op-bindings
+COPY ./.git /app/.git
 
 ARG TARGETOS TARGETARCH
 

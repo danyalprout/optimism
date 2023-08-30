@@ -8,9 +8,32 @@ volumes:
   l1_data:
   l2_data:
   op_log:
+  s3_data:
 
 
 services:
+  s3:
+    image: "quay.io/minio/minio"
+    ports:
+      - "9000:9000"
+      - "9999:9090"
+    environment:
+      MINIO_ROOT_USER: ROOTUSER
+      MINIO_ROOT_PASSWORD: SECRET123
+    volumes:
+      - "s3_data:/data"
+    command: server /data --console-address ":9090"
+
+  s3-setup:
+    image: "quay.io/minio/mc"
+    depends_on:
+      - s3
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc config host add myminio http://127.0.0.1:9000 ROOTUSER SECRET123;
+      /usr/bin/mc mb -p myminio/l3-batch-inbox;
+      exit 0;
+      "
   l1:
     build:
       context: .
@@ -44,6 +67,7 @@ services:
     depends_on:
       - l1
       - l2
+      - s3-setup
     build:
       context: ../
       dockerfile: ./op-node/Dockerfile
@@ -71,6 +95,11 @@ services:
       --metrics.port=7300
       --pprof.enabled
       --rpc.enable-admin
+    environment:
+      OP_NODE_S3_URL: "http://172.17.0.1:9000"
+      OP_NODE_S3_BUCKET: "l3-batch-inbox"
+      OP_NODE_S3_KEY: "ROOTUSER"
+      OP_NODE_S3_SECRET: "SECRET123"
     ports:
       - "7545:8545"
       - "9003:9003"
@@ -111,6 +140,7 @@ services:
       - l1
       - l2
       - op-node
+      - s3-setup
     build:
       context: ../
       dockerfile: ./op-batcher/Dockerfile
@@ -131,6 +161,10 @@ services:
       OP_BATCHER_PPROF_ENABLED: "true"
       OP_BATCHER_METRICS_ENABLED: "true"
       OP_BATCHER_RPC_ENABLE_ADMIN: "true"
+      OP_BATCHER_S3_URL: "http://172.17.0.1:9000"
+      OP_BATCHER_S3_BUCKET: "l3-batch-inbox"
+      OP_BATCHER_S3_KEY: "ROOTUSER"
+      OP_BATCHER_S3_SECRET: "SECRET123"
 
   stateviz:
     build:

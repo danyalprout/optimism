@@ -64,6 +64,12 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		L2Sync: l2SyncEndpoint,
 		Rollup: *rollupConfig,
 		Driver: *driverConfig,
+
+		S3Url:    ctx.String(flags.S3URL.Name),
+		S3Bucket: ctx.String(flags.S3Bucket.Name),
+		S3Key:    ctx.String(flags.S3Key.Name),
+		S3Secret: ctx.String(flags.S3Secret.Name),
+
 		RPC: node.RPCConfig{
 			ListenAddr:  ctx.String(flags.RPCListenAddr.Name),
 			ListenPort:  ctx.Int(flags.RPCListenPort.Name),

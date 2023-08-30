@@ -81,6 +81,7 @@ func fetchBatchesPerBlock(client *ethclient.Client, number *big.Int, signer type
 
 			validFrames := true
 			frameError := ""
+			// DANYAL!
 			frames, err := derive.ParseFrames(tx.Data())
 			if err != nil {
 				fmt.Printf("Found a transaction (%s) with invalid data: %v\n", tx.Hash().String(), err)

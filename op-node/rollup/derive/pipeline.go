@@ -3,6 +3,11 @@ package derive
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"io"
 
 	"github.com/ethereum/go-ethereum/log"
@@ -74,13 +79,46 @@ type DerivationPipeline struct {
 	metrics Metrics
 }
 
-// NewDerivationPipeline creates a derivation pipeline, which should be reset before use.
-func NewDerivationPipeline(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher, engine Engine, metrics Metrics) *DerivationPipeline {
+func s3Session(cfg rollup.S3Config) *session.Session {
+	region := "us-east-1"
+	resolver := func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
+		if service == endpoints.S3ServiceID {
+			return endpoints.ResolvedEndpoint{
+				URL: cfg.S3Url,
+			}, nil
+		}
 
+		return endpoints.DefaultResolver().EndpointFor(service, region, optFns...)
+	}
+
+	sess, err := session.NewSession(&aws.Config{
+		S3ForcePathStyle: aws.Bool(true),
+		Region:           &region,
+		EndpointResolver: endpoints.ResolverFunc(resolver),
+		Credentials:      credentials.NewStaticCredentials(cfg.S3Key, cfg.S3Secret, ""),
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return sess
+}
+
+// NewDerivationPipeline creates a derivation pipeline, which should be reset before use.
+func NewDerivationPipeline(config rollup.S3Config, log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher, engine Engine, metrics Metrics) *DerivationPipeline {
+
+	sess := s3Session(config)
+	svc := s3.New(sess, &aws.Config{
+		DisableRestProtocolURICleaning: aws.Bool(true),
+	})
+
+	// DANYAL
 	// Pull stages
 	l1Traversal := NewL1Traversal(log, cfg, l1Fetcher)
-	dataSrc := NewDataSourceFactory(log, cfg, l1Fetcher) // auxiliary stage for L1Retrieval
+	dataSrc := NewDataSourceFactory(log, cfg, l1Fetcher, svc, config.S3Bucket) // auxiliary stage for L1Retrieval
 	l1Src := NewL1Retrieval(log, dataSrc, l1Traversal)
+
 	frameQueue := NewFrameQueue(log, l1Src)
 	bank := NewChannelBank(log, cfg, frameQueue, l1Fetcher)
 	chInReader := NewChannelInReader(log, bank, metrics)
