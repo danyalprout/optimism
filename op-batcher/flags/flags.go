@@ -106,10 +106,7 @@ var requiredFlags = []cli.Flag{
 	L1EthRpcFlag,
 	L2EthRpcFlag,
 	RollupRpcFlag,
-	S3URL,
 	S3Bucket,
-	S3Key,
-	S3Secret,
 }
 
 var optionalFlags = []cli.Flag{

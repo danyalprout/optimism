@@ -241,10 +241,7 @@ var (
 var requiredFlags = []cli.Flag{
 	L1NodeAddr,
 	L2EngineAddr,
-	S3URL,
 	S3Bucket,
-	S3Key,
-	S3Secret,
 }
 
 var optionalFlags = []cli.Flag{

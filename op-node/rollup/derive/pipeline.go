@@ -80,6 +80,10 @@ type DerivationPipeline struct {
 }
 
 func s3Session(cfg rollup.S3Config) *session.Session {
+	if cfg.S3Key == "" {
+		return session.Must(session.NewSession())
+	}
+
 	region := "us-east-1"
 	resolver := func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
 		if service == endpoints.S3ServiceID {
