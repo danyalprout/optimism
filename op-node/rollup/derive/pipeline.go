@@ -79,12 +79,17 @@ type DerivationPipeline struct {
 	metrics Metrics
 }
 
-func s3Session(cfg rollup.S3Config) *session.Session {
+func s3Session(cfg rollup.S3Config, l log.Logger) *session.Session {
+	region := "us-east-1"
+
+	l.Info("creating s3 session", "bucket", cfg.S3Bucket)
 	if cfg.S3Key == "" {
-		return session.Must(session.NewSession())
+		l.Info("s3 key unset", "key", cfg.S3Key, "url", cfg.S3Url, "pass", cfg.S3Secret, "bucket", cfg.S3Bucket)
+		return session.Must(session.NewSession(&aws.Config{
+			Region: &region,
+		}))
 	}
 
-	region := "us-east-1"
 	resolver := func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
 		if service == endpoints.S3ServiceID {
 			return endpoints.ResolvedEndpoint{
@@ -112,7 +117,7 @@ func s3Session(cfg rollup.S3Config) *session.Session {
 // NewDerivationPipeline creates a derivation pipeline, which should be reset before use.
 func NewDerivationPipeline(config rollup.S3Config, log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher, engine Engine, metrics Metrics) *DerivationPipeline {
 
-	sess := s3Session(config)
+	sess := s3Session(config, log)
 	svc := s3.New(sess, &aws.Config{
 		DisableRestProtocolURICleaning: aws.Bool(true),
 	})
