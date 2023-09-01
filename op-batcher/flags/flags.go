@@ -117,6 +117,9 @@ var optionalFlags = []cli.Flag{
 	MaxL1TxSizeBytesFlag,
 	StoppedFlag,
 	SequencerHDPathFlag,
+	S3Key,
+	S3Secret,
+	S3URL,
 }
 
 func init() {

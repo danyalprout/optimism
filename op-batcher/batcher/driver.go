@@ -50,12 +50,17 @@ type BatchSubmitter struct {
 	state *channelManager
 }
 
-func s3Session(cfg CLIConfig) *session.Session {
+func s3Session(cfg CLIConfig, l log.Logger) *session.Session {
+	region := "us-east-1"
+
+	l.Info("creating s3 session", "bucket", cfg.S3Bucket)
 	if cfg.S3Key == "" {
-		return session.Must(session.NewSession())
+		l.Info("s3 key unset", "key", cfg.S3Key, "url", cfg.S3Url, "pass", cfg.S3Secret, "bucket", cfg.S3Bucket)
+		return session.Must(session.NewSession(&aws.Config{
+			Region: &region,
+		}))
 	}
 
-	region := "us-east-1"
 	resolver := func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
 		if service == endpoints.S3ServiceID {
 			return endpoints.ResolvedEndpoint{
@@ -112,7 +117,7 @@ func NewBatchSubmitterFromCLIConfig(cfg CLIConfig, l log.Logger, m metrics.Metri
 		return nil, err
 	}
 
-	uploader := s3manager.NewUploader(s3Session(cfg))
+	uploader := s3manager.NewUploader(s3Session(cfg, l))
 
 	batcherCfg := Config{
 		L1Client:               l1Client,

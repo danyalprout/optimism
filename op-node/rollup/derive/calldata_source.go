@@ -108,10 +108,9 @@ func (ds *DataSource) Next(ctx context.Context) (eth.Data, error) {
 		return nil, io.EOF
 	} else {
 		data := ds.data[0]
-
 		fileName := data.String()
 
-		ds.log.Info("ANGEL HASH", "hash", fileName)
+		ds.log.Info("loading data from s3", "fileName", fileName)
 
 		out, err := ds.s3.GetObject(&s3.GetObjectInput{
 			Bucket: aws.String(ds.bucket),
@@ -119,17 +118,17 @@ func (ds *DataSource) Next(ctx context.Context) (eth.Data, error) {
 		})
 
 		if err != nil {
-			ds.log.Error("ANGEL couldn't load from s3", "error", err)
+			ds.log.Error("couldn't load from s3", "error", err)
 			return nil, NewTemporaryError(fmt.Errorf("couldn't load from s3: %w", err))
 		}
 
 		d, e := ioutil.ReadAll(out.Body)
 		if e != nil {
-			ds.log.Error("ANGEL couldn't read from s3 file", "error", err)
+			ds.log.Error("couldn't read from s3 file", "error", err)
 			return nil, NewTemporaryError(fmt.Errorf("couldn't read data from s3 file: %w", err))
 		}
 
-		ds.log.Info("ANGEL IT ALL WORKED")
+		ds.log.Info("loaded data successfully")
 		ds.data = ds.data[1:]
 		return d, nil
 	}

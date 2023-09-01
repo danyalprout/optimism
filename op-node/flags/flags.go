@@ -275,6 +275,9 @@ var optionalFlags = []cli.Flag{
 	HeartbeatURLFlag,
 	BackupL2UnsafeSyncRPC,
 	BackupL2UnsafeSyncRPCTrustRPC,
+	S3Key,
+	S3Secret,
+	S3URL,
 }
 
 // Flags contains the list of configuration options available to the binary.

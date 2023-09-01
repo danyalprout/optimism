@@ -36,8 +36,6 @@ func Main(version string, cliCtx *cli.Context) error {
 	m := metrics.NewMetrics("default")
 	l.Info("Initializing Batch Submitter")
 
-	l.Info("ANGEL URL", cfg.S3Url, cfg.S3Bucket, cfg.S3Key, cfg.S3Secret)
-
 	batchSubmitter, err := NewBatchSubmitterFromCLIConfig(cfg, l, m)
 	if err != nil {
 		l.Error("Unable to create Batch Submitter", "error", err)
