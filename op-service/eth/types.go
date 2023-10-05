@@ -125,6 +125,13 @@ type Data = hexutil.Bytes
 
 type PayloadID = engine.PayloadID
 
+type Withdrawal struct {
+	Index     uint64         `json:"index"`          // monotonically increasing identifier issued by consensus layer
+	Validator uint64         `json:"validatorIndex"` // index of validator associated with withdrawal
+	Address   common.Address `json:"address"`        // target address for withdrawn ether
+	Amount    uint64         `json:"amount"`         // value of withdrawal in Gwei
+}
+
 type ExecutionPayload struct {
 	ParentHash    common.Hash     `json:"parentHash"`
 	FeeRecipient  common.Address  `json:"feeRecipient"`
@@ -141,7 +148,8 @@ type ExecutionPayload struct {
 	BlockHash     common.Hash     `json:"blockHash"`
 	// Array of transaction objects, each object is a byte list (DATA) representing
 	// TransactionType || TransactionPayload or LegacyTransaction as defined in EIP-2718
-	Transactions []Data `json:"transactions"`
+	Transactions []Data        `json:"transactions"`
+	Withdrawals  *[]Withdrawal `json:"withdrawals,omitempty"`
 }
 
 func (payload *ExecutionPayload) ID() BlockID {
@@ -234,6 +242,8 @@ type PayloadAttributes struct {
 	NoTxPool bool `json:"noTxPool,omitempty"`
 	// GasLimit override
 	GasLimit *Uint64Quantity `json:"gasLimit,omitempty"`
+
+	Withdrawals *[]Withdrawal `json:"withdrawals,omitempty"`
 }
 
 type ExecutePayloadStatus string

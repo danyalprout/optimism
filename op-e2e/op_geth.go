@@ -200,6 +200,11 @@ func (d *OpGeth) CreatePayloadAttributes(txs ...*types.Transaction) (*eth.Payloa
 		return nil, err
 	}
 
+	var withdrawals *[]eth.Withdrawal
+	if d.L2ChainConfig.IsCanyon(uint64(timestamp)) {
+		withdrawals = &[]eth.Withdrawal{}
+	}
+
 	var txBytes []hexutil.Bytes
 	txBytes = append(txBytes, l1Info)
 	for _, tx := range txs {
@@ -214,6 +219,7 @@ func (d *OpGeth) CreatePayloadAttributes(txs ...*types.Transaction) (*eth.Payloa
 		Transactions: txBytes,
 		NoTxPool:     true,
 		GasLimit:     (*eth.Uint64Quantity)(&d.SystemConfig.GasLimit),
+		Withdrawals:  withdrawals,
 	}
 	return &attrs, nil
 }

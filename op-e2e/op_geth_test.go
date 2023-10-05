@@ -2,6 +2,8 @@ package op_e2e
 
 import (
 	"context"
+	"fmt"
+	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
 	"time"
@@ -716,6 +718,72 @@ func TestRegolith(t *testing.T) {
 			require.Equal(t, types.ReceiptStatusSuccessful, rezeroReceipt.Status, "rezeroing storage value should succeed")
 
 			require.Greater(t, rezeroReceipt.GasUsed, zeroReceipt.GasUsed, "rezero should use more gas due to not getting gas refund for clearing slot")
+		})
+	}
+}
+
+func TestPreCanyonNoWithdrawalsData(t *testing.T) {
+	InitParallel(t)
+
+	cfg := DefaultSystemConfig(t)
+	s := hexutil.Uint64(0)
+	cfg.DeployConfig.L2GenesisRegolithTimeOffset = &s
+	cfg.DeployConfig.L2GenesisCanyonTimeOffset = nil
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	opGeth, err := NewOpGeth(t, ctx, &cfg)
+	require.NoError(t, err)
+	defer opGeth.Close()
+
+	b, err := opGeth.AddL2Block(ctx)
+	require.NoError(t, err)
+	assert.Nil(t, b.Withdrawals, "should not have withdrawals")
+
+	l1Block, err := opGeth.L2Client.BlockByNumber(ctx, nil)
+	require.Nil(t, err)
+	assert.Equal(t, types.Withdrawals(nil), l1Block.Withdrawals())
+}
+
+func TestCanyonWithdrawals(t *testing.T) {
+	InitParallel(t)
+
+	tests := []struct {
+		name         string
+		canyonTime   hexutil.Uint64
+		activeCanyon func(ctx context.Context, opGeth *OpGeth)
+	}{
+		{name: "ActivateAtGenesis", canyonTime: 0, activeCanyon: func(ctx context.Context, opGeth *OpGeth) {}},
+		{name: "ActivateAfterGenesis", canyonTime: 2, activeCanyon: func(ctx context.Context, opGeth *OpGeth) {
+			_, err := opGeth.AddL2Block(ctx)
+			require.NoError(t, err)
+		}},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(fmt.Sprintf("ReturnsWithdrawals_%s", test.name), func(t *testing.T) {
+			cfg := DefaultSystemConfig(t)
+			s := hexutil.Uint64(0)
+			cfg.DeployConfig.L2GenesisRegolithTimeOffset = &s
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = &test.canyonTime
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			test.activeCanyon(ctx, opGeth)
+
+			b, err := opGeth.AddL2Block(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, *b.Withdrawals, []eth.Withdrawal{})
+
+			l1Block, err := opGeth.L2Client.BlockByNumber(ctx, nil)
+			require.Nil(t, err)
+			assert.Equal(t, l1Block.Withdrawals(), types.Withdrawals{})
 		})
 	}
 }

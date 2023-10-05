@@ -53,10 +53,11 @@ func NewEngineClient(client client.RPC, log log.Logger, metrics caching.Metrics,
 func (s *EngineClient) ForkchoiceUpdate(ctx context.Context, fc *eth.ForkchoiceState, attributes *eth.PayloadAttributes) (*eth.ForkchoiceUpdatedResult, error) {
 	e := s.log.New("state", fc, "attr", attributes)
 	e.Trace("Sharing forkchoice-updated signal")
+
 	fcCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 	var result eth.ForkchoiceUpdatedResult
-	err := s.client.CallContext(fcCtx, &result, "engine_forkchoiceUpdatedV1", fc, attributes)
+	err := s.client.CallContext(fcCtx, &result, "engine_forkchoiceUpdatedV2", fc, attributes)
 	if err == nil {
 		e.Trace("Shared forkchoice-updated signal")
 		if attributes != nil { // block building is optional, we only get a payload ID if we are building a block
@@ -88,16 +89,29 @@ func (s *EngineClient) NewPayload(ctx context.Context, payload *eth.ExecutionPay
 	e := s.log.New("block_hash", payload.BlockHash)
 	e.Trace("sending payload for execution")
 
+	if s.rollupCfg.IsCanyon(uint64(payload.Timestamp)) {
+		payload.Withdrawals = &[]eth.Withdrawal{}
+	}
+
 	execCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 	var result eth.PayloadStatusV1
-	err := s.client.CallContext(execCtx, &result, "engine_newPayloadV1", payload)
+	err := s.client.CallContext(execCtx, &result, "engine_newPayloadV2", payload)
 	e.Trace("Received payload execution result", "status", result.Status, "latestValidHash", result.LatestValidHash, "message", result.ValidationError)
 	if err != nil {
 		e.Error("Payload execution failed", "err", err)
 		return nil, fmt.Errorf("failed to execute payload: %w", err)
 	}
 	return &result, nil
+}
+
+type executionPayloadEnvelope struct {
+	ExecutionPayload eth.ExecutionPayload `json:"executionPayload"  gencodec:"required"`
+
+	// TODO!
+	//Override         bool                 `json:"shouldOverrideBuilder"`
+	//BlockValue       *big.Int             `json:"blockValue"  gencodec:"required"`
+	//BlobsBundle      *BlobsBundleV1       `json:"blobsBundle"`
 }
 
 // GetPayload gets the execution payload associated with the PayloadId.
@@ -107,8 +121,8 @@ func (s *EngineClient) NewPayload(ctx context.Context, payload *eth.ExecutionPay
 func (s *EngineClient) GetPayload(ctx context.Context, payloadId eth.PayloadID) (*eth.ExecutionPayload, error) {
 	e := s.log.New("payload_id", payloadId)
 	e.Trace("getting payload")
-	var result eth.ExecutionPayload
-	err := s.client.CallContext(ctx, &result, "engine_getPayloadV1", payloadId)
+	var result executionPayloadEnvelope
+	err := s.client.CallContext(ctx, &result, "engine_getPayloadV2", payloadId)
 	if err != nil {
 		e.Warn("Failed to get payload", "payload_id", payloadId, "err", err)
 		if rpcErr, ok := err.(rpc.Error); ok {
@@ -126,7 +140,7 @@ func (s *EngineClient) GetPayload(ctx context.Context, payloadId eth.PayloadID) 
 		return nil, err
 	}
 	e.Trace("Received payload")
-	return &result, nil
+	return &result.ExecutionPayload, nil
 }
 
 func (s *EngineClient) SignalSuperchainV1(ctx context.Context, recommended, required params.ProtocolVersion) (params.ProtocolVersion, error) {
