@@ -66,7 +66,7 @@ func TestMinesFromGenesis(t *testing.T) {
 func TestTransitionsToCanyon(t *testing.T) {
 	cfg := DefaultSystemConfig(t)
 	s := hexutil.Uint64(0)
-	c := hexutil.Uint64(20)
+	c := hexutil.Uint64(10)
 
 	cfg.DeployConfig.L2GenesisRegolithTimeOffset = &s
 	cfg.DeployConfig.L2GenesisCanyonTimeOffset = &c
