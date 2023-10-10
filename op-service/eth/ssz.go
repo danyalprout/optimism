@@ -184,6 +184,7 @@ func (payload *ExecutionPayload) UnmarshalSSZ(scope uint32, r io.Reader) error {
 		return ErrBadTransactionOffset
 	}
 	offset += 4
+	// DANYAL - Fixed size here would include withdrawals offset
 	if offset != executionPayloadFixedPart {
 		panic("fixed part size is inconsistent")
 	}

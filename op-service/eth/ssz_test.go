@@ -67,6 +67,7 @@ func FuzzExecutionPayloadMarshalUnmarshal(f *testing.F) {
 			payload.Transactions[i] = txsData[:txSize]
 			txsData = txsData[txSize:]
 		}
+
 		var buf bytes.Buffer
 		if _, err := payload.MarshalSSZ(&buf); err != nil {
 			t.Fatalf("failed to marshal ExecutionPayload: %v", err)
