@@ -290,6 +290,12 @@ func BuildBlocksValidator(log log.Logger, cfg *rollup.Config, runCfg GossipRunti
 			return pubsub.ValidationReject
 		}
 
+		// [REJECT] if withdrawals are present, but pre-shanghai
+		// DANYAL
+
+		// [REJECT] if no withdrawals and post-shanghai
+		// DANYAL
+
 		// rounding down to seconds is fine here.
 		now := uint64(time.Now().Unix())
 
@@ -367,6 +373,7 @@ func verifyBlockSignature(log log.Logger, cfg *rollup.Config, runCfg GossipRunti
 }
 
 type GossipIn interface {
+	// DANYAL
 	OnUnsafeL2Payload(ctx context.Context, from peer.ID, msg *eth.ExecutionPayload) error
 }
 
@@ -429,6 +436,7 @@ func (p *publisher) PublishL2Payload(ctx context.Context, payload *eth.Execution
 	// This also copies the data, freeing up the original buffer to go back into the pool
 	out := snappy.Encode(nil, data)
 
+	// DANYAL
 	return p.blocksTopic.Publish(ctx, out)
 }
 
@@ -467,6 +475,7 @@ func JoinGossip(self peer.ID, ps *pubsub.PubSub, log log.Logger, cfg *rollup.Con
 		return nil, fmt.Errorf("failed to subscribe to blocks gossip topic: %w", err)
 	}
 
+	// DANYAL
 	subscriber := MakeSubscriber(log, BlocksHandler(gossipIn.OnUnsafeL2Payload))
 	go subscriber(p2pCtx, subscription)
 

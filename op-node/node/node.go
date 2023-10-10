@@ -497,6 +497,7 @@ func (n *OpNode) PublishL2Payload(ctx context.Context, payload *eth.ExecutionPay
 	return nil
 }
 
+// DANYAL
 func (n *OpNode) OnUnsafeL2Payload(ctx context.Context, from peer.ID, payload *eth.ExecutionPayload) error {
 	// ignore if it's from ourselves
 	if n.p2pNode != nil && from == n.p2pNode.Host().ID() {
