@@ -132,6 +132,10 @@ type Withdrawal struct {
 	Amount    uint64         `json:"amount"`
 }
 
+type ExecutionPayloadEnvelope struct {
+	ExecutionPayload *ExecutionPayload `json:"executionPayload"  gencodec:"required"`
+}
+
 type ExecutionPayload struct {
 	ParentHash    common.Hash     `json:"parentHash"`
 	FeeRecipient  common.Address  `json:"feeRecipient"`
