@@ -709,6 +709,7 @@ func (bg *BackendGroup) Forward(ctx context.Context, rpcReqs []*RPCReq, isBatch 
 			safe:          bg.Consensus.GetSafeBlockNumber(),
 			finalized:     bg.Consensus.GetFinalizedBlockNumber(),
 			maxBlockRange: bg.Consensus.maxBlockRange,
+			skipRewriting: bg.Consensus.skipRewriting,
 		}
 
 		for i, req := range rpcReqs {

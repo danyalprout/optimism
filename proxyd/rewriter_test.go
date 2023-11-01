@@ -624,7 +624,7 @@ func TestRewriteRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := RewriteRequest(tt.args.rctx, tt.args.req, tt.args.res)
+			result, err := rewriteRequest(tt.args.rctx, tt.args.req, tt.args.res)
 			if result != RewriteOverrideError {
 				require.Nil(t, err)
 				require.Equal(t, tt.expected, result)
@@ -706,7 +706,7 @@ func TestRewriteResponse(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := RewriteResponse(tt.args.rctx, tt.args.req, tt.args.res)
+			result, err := rewriteResponse(tt.args.rctx, tt.args.req, tt.args.res)
 			require.Nil(t, err)
 			require.Equal(t, tt.expected, result)
 			if tt.check != nil {

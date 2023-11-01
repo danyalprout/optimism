@@ -314,6 +314,9 @@ func Start(config *Config) (*Server, func(), error) {
 			if bgcfg.ConsensusMaxBlockRange > 0 {
 				copts = append(copts, WithMaxBlockRange(bgcfg.ConsensusMaxBlockRange))
 			}
+			if bgcfg.ConsensusSkipRewriting {
+				copts = append(copts, WithSkipRewriting())
+			}
 
 			var tracker ConsensusTracker
 			if bgcfg.ConsensusHA {
