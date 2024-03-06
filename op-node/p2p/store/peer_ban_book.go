@@ -47,6 +47,7 @@ func (p peerBanUpdate) Apply(rec *peerBanRecord) {
 
 type peerBanBook struct {
 	book *recordsBook[peer.ID, *peerBanRecord]
+	l    log.Logger
 }
 
 func newPeerBanRecord() *peerBanRecord {
@@ -58,7 +59,10 @@ func newPeerBanBook(ctx context.Context, logger log.Logger, clock clock.Clock, s
 	if err != nil {
 		return nil, err
 	}
-	return &peerBanBook{book: book}, nil
+	return &peerBanBook{
+		l:    logger,
+		book: book,
+	}, nil
 }
 
 func (d *peerBanBook) startGC() {
@@ -77,6 +81,7 @@ func (d *peerBanBook) GetPeerBanExpiration(id peer.ID) (time.Time, error) {
 }
 
 func (d *peerBanBook) SetPeerBanExpiration(id peer.ID, expirationTime time.Time) error {
+	d.l.Info("set peer ban expiration", "peer", id, "expiration", expirationTime)
 	if expirationTime == (time.Time{}) {
 		return d.book.deleteRecord(id)
 	}

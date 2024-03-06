@@ -92,6 +92,7 @@ func (p *PeerMonitor) checkNextPeer() error {
 	if p.manager.IsStatic(id) {
 		return nil
 	}
+	p.l.Info("banning  peer", "peer", id, "score", score, "minScore", p.minScore, "banDuration", p.banDuration, "now", p.clock.Now())
 	if err := p.manager.BanPeer(id, p.clock.Now().Add(p.banDuration)); err != nil {
 		return fmt.Errorf("banning peer %v: %w", id, err)
 	}
