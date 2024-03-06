@@ -61,7 +61,8 @@ func NewScorer(cfg *rollup.Config, peerStore Peerstore, metricer ScoreMetrics, a
 // The returned [pubsub.ExtendedPeerScoreInspectFn] is called with a mapping of peer IDs to peer score snapshots.
 // The incoming peer score snapshots only contain gossip-score components.
 func (s *scorer) SnapshotHook() pubsub.ExtendedPeerScoreInspectFn {
-	blocksTopicName := blocksTopicV1(s.cfg)
+	topics := []string{blocksTopicV1(s.cfg), blocksTopicV2(s.cfg), blocksTopicV3(s.cfg)}
+
 	return func(m map[peer.ID]*pubsub.PeerScoreSnapshot) {
 		allScores := make([]store.PeerScores, 0, len(m))
 		// Now set the new scores.
@@ -72,12 +73,20 @@ func (s *scorer) SnapshotHook() pubsub.ExtendedPeerScoreInspectFn {
 				IPColocationFactor: snap.IPColocationFactor,
 				BehavioralPenalty:  snap.BehaviourPenalty,
 			}
-			if topSnap, ok := snap.Topics[blocksTopicName]; ok {
-				diff.Blocks.TimeInMesh = float64(topSnap.TimeInMesh) / float64(time.Second)
-				diff.Blocks.MeshMessageDeliveries = topSnap.MeshMessageDeliveries
-				diff.Blocks.FirstMessageDeliveries = topSnap.FirstMessageDeliveries
-				diff.Blocks.InvalidMessageDeliveries = topSnap.InvalidMessageDeliveries
+
+			timeInMesh := float64(0)
+			for _, topic := range topics {
+				if topSnap, ok := snap.Topics[topic]; ok {
+					seconds := float64(topSnap.TimeInMesh) / float64(time.Second)
+					timeInMesh = max(timeInMesh, seconds)
+
+					diff.Blocks.MeshMessageDeliveries += topSnap.MeshMessageDeliveries
+					diff.Blocks.FirstMessageDeliveries += topSnap.FirstMessageDeliveries
+					diff.Blocks.InvalidMessageDeliveries += topSnap.InvalidMessageDeliveries
+				}
 			}
+			diff.Blocks.TimeInMesh = timeInMesh
+
 			if peerScores, err := s.peerStore.SetScore(id, &diff); err != nil {
 				s.log.Warn("Unable to update peer gossip score", "err", err)
 			} else {
