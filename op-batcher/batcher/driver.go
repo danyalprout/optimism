@@ -354,7 +354,8 @@ func (l *BatchSubmitter) publishTxToL1(ctx context.Context, queue *txmgr.Queue[t
 	l.recordL1Tip(l1tip)
 
 	// Collect next transaction data
-	txdata, err := l.state.TxData(l1tip.ID())
+	txdata, err := l.state.TxData(l1tip.ID(), l1tip.ID())
+
 	if err == io.EOF {
 		l.Log.Trace("no transaction data available")
 		return err

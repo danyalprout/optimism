@@ -33,6 +33,8 @@ type channelManager struct {
 
 	// All blocks since the last request for new tx data.
 	blocks []*types.Block
+	// The latest L1 block from all the L2 blocks in the most recently closed channel
+	l1OriginLastClosedChannel *eth.BlockID
 	// last block hash - for reorg detection
 	tip common.Hash
 
@@ -64,6 +66,7 @@ func (s *channelManager) Clear() {
 	defer s.mu.Unlock()
 	s.log.Trace("clearing channel manager state")
 	s.blocks = s.blocks[:0]
+	s.l1OriginLastClosedChannel = nil
 	s.tip = common.Hash{}
 	s.closed = false
 	s.currentChannel = nil
@@ -144,7 +147,7 @@ func (s *channelManager) nextTxData(channel *channel) (txData, error) {
 // It currently only uses one frame per transaction. If the pending channel is
 // full, it only returns the remaining frames of this channel until it got
 // successfully fully sent to L1. It returns io.EOF if there's no pending frame.
-func (s *channelManager) TxData(l1Head eth.BlockID) (txData, error) {
+func (s *channelManager) TxData(l1Head eth.BlockID, l1SafeHead eth.BlockID) (txData, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var firstWithFrame *channel
@@ -156,7 +159,7 @@ func (s *channelManager) TxData(l1Head eth.BlockID) (txData, error) {
 	}
 
 	dataPending := firstWithFrame != nil && firstWithFrame.HasFrame()
-	s.log.Debug("Requested tx data", "l1Head", l1Head, "data_pending", dataPending, "blocks_pending", len(s.blocks))
+	s.log.Debug("Requested tx data", "l1Head", l1Head, "l1SafeHead", l1SafeHead, "data_pending", dataPending, "blocks_pending", len(s.blocks))
 
 	// Short circuit if there is a pending frame or the channel manager is closed.
 	if dataPending || s.closed {
@@ -170,7 +173,7 @@ func (s *channelManager) TxData(l1Head eth.BlockID) (txData, error) {
 		return txData{}, io.EOF
 	}
 
-	if err := s.ensureChannelWithSpace(l1Head); err != nil {
+	if err := s.ensureChannelWithSpace(l1Head, l1SafeHead); err != nil {
 		return txData{}, err
 	}
 
@@ -190,10 +193,19 @@ func (s *channelManager) TxData(l1Head eth.BlockID) (txData, error) {
 	return s.nextTxData(s.currentChannel)
 }
 
+func (s *channelManager) getChannelStartBlock(l1SafeHead eth.BlockID) eth.BlockID {
+	if s.l1OriginLastClosedChannel != nil {
+		return *s.l1OriginLastClosedChannel
+	}
+
+	// If there is no last closed channel, we should start from the safe head
+	return l1SafeHead
+}
+
 // ensureChannelWithSpace ensures currentChannel is populated with a channel that has
 // space for more data (i.e. channel.IsFull returns false). If currentChannel is nil
 // or full, a new channel is created.
-func (s *channelManager) ensureChannelWithSpace(l1Head eth.BlockID) error {
+func (s *channelManager) ensureChannelWithSpace(l1Head eth.BlockID, l1SafeHead eth.BlockID) error {
 	if s.currentChannel != nil && !s.currentChannel.IsFull() {
 		return nil
 	}
@@ -202,11 +214,19 @@ func (s *channelManager) ensureChannelWithSpace(l1Head eth.BlockID) error {
 	if err != nil {
 		return fmt.Errorf("creating new channel: %w", err)
 	}
+
+	startBlock := s.getChannelStartBlock(l1SafeHead)
+	if startBlock.Number > 0 {
+		// Sets the timeout of the channel to be the latest safe head + max channel timeout
+		pc.RegisterL1Block(startBlock.Number)
+	}
+
 	s.currentChannel = pc
 	s.channelQueue = append(s.channelQueue, pc)
 	s.log.Info("Created channel",
 		"id", pc.ID(),
 		"l1Head", l1Head,
+		"l1SafeHead", l1SafeHead,
 		"blocks_pending", len(s.blocks),
 		"batch_type", s.cfg.BatchType,
 		"max_frame_size", s.cfg.MaxFrameSize,
@@ -284,6 +304,8 @@ func (s *channelManager) outputFrames() error {
 		return nil
 	}
 
+	s.l1OriginLastClosedChannel = s.currentChannel.LatestL1Origin()
+
 	inBytes, outBytes := s.currentChannel.InputBytes(), s.currentChannel.OutputBytes()
 	s.metr.RecordChannelClosed(
 		s.currentChannel.ID(),
@@ -306,6 +328,7 @@ func (s *channelManager) outputFrames() error {
 		"output_bytes", outBytes,
 		"full_reason", s.currentChannel.FullErr(),
 		"compr_ratio", comprRatio,
+		"latest_l1_origin", s.l1OriginLastClosedChannel,
 	)
 	return nil
 }
