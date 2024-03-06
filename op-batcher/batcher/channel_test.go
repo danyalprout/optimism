@@ -28,7 +28,7 @@ func TestChannelTimeout(t *testing.T) {
 	require.Nil(t, m.currentChannel)
 
 	// Set the pending channel
-	require.NoError(t, m.ensureChannelWithSpace(eth.BlockID{}))
+	require.NoError(t, m.ensureChannelWithSpace(eth.BlockID{}, eth.BlockID{}))
 	channel := m.currentChannel
 	require.NotNil(t, channel)
 
@@ -76,7 +76,7 @@ func TestChannelNextTxData(t *testing.T) {
 	// Set the pending channel
 	// The nextTxData function should still return EOF
 	// since the pending channel has no frames
-	require.NoError(t, m.ensureChannelWithSpace(eth.BlockID{}))
+	require.NoError(t, m.ensureChannelWithSpace(eth.BlockID{}, eth.BlockID{}))
 	channel := m.currentChannel
 	require.NotNil(t, channel)
 	returnedTxData, err = m.nextTxData(channel)
@@ -119,7 +119,7 @@ func TestChannelTxConfirmed(t *testing.T) {
 
 	// Let's add a valid pending transaction to the channel manager
 	// So we can demonstrate that TxConfirmed's correctness
-	require.NoError(t, m.ensureChannelWithSpace(eth.BlockID{}))
+	require.NoError(t, m.ensureChannelWithSpace(eth.BlockID{}, eth.BlockID{}))
 	channelID := m.currentChannel.ID()
 	frame := frameData{
 		data: []byte{},
@@ -168,7 +168,7 @@ func TestChannelTxFailed(t *testing.T) {
 
 	// Let's add a valid pending transaction to the channel
 	// manager so we can demonstrate correctness
-	require.NoError(t, m.ensureChannelWithSpace(eth.BlockID{}))
+	require.NoError(t, m.ensureChannelWithSpace(eth.BlockID{}, eth.BlockID{}))
 	channelID := m.currentChannel.ID()
 	frame := frameData{
 		data: []byte{},
