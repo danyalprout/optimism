@@ -202,6 +202,11 @@ func (s *channel) OutputFrames() error {
 	return s.channelBuilder.OutputFrames()
 }
 
+// LatestL1Origin returns the latest L1 block origin from all the L2 blocks that have been added to the channel
+func (c *channel) LatestL1Origin() *eth.BlockID {
+	return c.channelBuilder.LatestL1Origin()
+}
+
 func (s *channel) Close() {
 	s.channelBuilder.Close()
 }
