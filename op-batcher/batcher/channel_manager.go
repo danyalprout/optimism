@@ -211,6 +211,7 @@ func (s *channelManager) ensureChannelWithSpace(l1Head eth.BlockID, l1SafeHead e
 	}
 
 	pc, err := newChannel(s.log, s.metr, s.cfg, s.rollupCfg)
+
 	if err != nil {
 		return fmt.Errorf("creating new channel: %w", err)
 	}
@@ -223,10 +224,13 @@ func (s *channelManager) ensureChannelWithSpace(l1Head eth.BlockID, l1SafeHead e
 
 	s.currentChannel = pc
 	s.channelQueue = append(s.channelQueue, pc)
+
 	s.log.Info("Created channel",
 		"id", pc.ID(),
 		"l1Head", l1Head,
 		"l1SafeHead", l1SafeHead,
+		"l1OriginLastClosedChannel", s.l1OriginLastClosedChannel,
+		"startBlock", startBlock,
 		"blocks_pending", len(s.blocks),
 		"batch_type", s.cfg.BatchType,
 		"max_frame_size", s.cfg.MaxFrameSize,
@@ -320,6 +324,7 @@ func (s *channelManager) outputFrames() error {
 	if inBytes > 0 {
 		comprRatio = float64(outBytes) / float64(inBytes)
 	}
+
 	s.log.Info("Channel closed",
 		"id", s.currentChannel.ID(),
 		"blocks_pending", len(s.blocks),

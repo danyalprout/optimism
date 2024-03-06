@@ -341,8 +341,14 @@ func (l *BatchSubmitter) publishTxToL1(ctx context.Context, queue *txmgr.Queue[t
 	}
 	l.recordL1Tip(l1tip)
 
+	l1Safe, err := l.safeL1Origin(ctx)
+	if err != nil {
+		l.Log.Error("Failed to query L1 safe origin", "err", err)
+		return err
+	}
+
 	// Collect next transaction data
-	txdata, err := l.state.TxData(l1tip.ID(), l1tip.ID())
+	txdata, err := l.state.TxData(l1tip.ID(), l1Safe)
 
 	if err == io.EOF {
 		l.Log.Trace("no transaction data available")
@@ -356,6 +362,30 @@ func (l *BatchSubmitter) publishTxToL1(ctx context.Context, queue *txmgr.Queue[t
 		return fmt.Errorf("BatchSubmitter.sendTransaction failed: %w", err)
 	}
 	return nil
+}
+
+func (l *BatchSubmitter) safeL1Origin(ctx context.Context) (eth.BlockID, error) {
+	ctx, cancel := context.WithTimeout(ctx, l.Config.NetworkTimeout)
+	defer cancel()
+
+	c, err := l.EndpointProvider.RollupClient(ctx)
+	if err != nil {
+		log.Error("Failed to get rollup client", "err", err)
+		return eth.BlockID{}, fmt.Errorf("safe l1 origin: error getting rollup client: %w", err)
+	}
+
+	status, err := c.SyncStatus(ctx)
+	if err != nil {
+		log.Error("Failed to get sync status", "err", err)
+		return eth.BlockID{}, fmt.Errorf("safe l1 origin: error getting sync status: %w", err)
+	}
+
+	// If the safe L2 block origin is 0, we are at the genesis block and should use the L1 origin from the rollup config.
+	if status.SafeL2.L1Origin.Number == 0 {
+		return l.RollupConfig.Genesis.L1, nil
+	}
+
+	return status.SafeL2.L1Origin, nil
 }
 
 // sendTransaction creates & submits a transaction to the batch inbox address with the given `txData`.
