@@ -79,14 +79,14 @@ type ChannelBuilder struct {
 // newChannelBuilder creates a new channel builder or returns an error if the
 // channel out could not be created.
 // it acts as a factory for either a span or singular channel out
-func NewChannelBuilder(cfg ChannelConfig, rollupCfg rollup.Config, latestL1OriginBlockNum uint64) (*ChannelBuilder, error) {
+func NewChannelBuilder(cfg ChannelConfig, rollupCfg rollup.Config, latestL1OriginBlockNum uint64, zstdPath string) (*ChannelBuilder, error) {
 	c, err := cfg.CompressorConfig.NewCompressor()
 	if err != nil {
 		return nil, err
 	}
 	var co derive.ChannelOut
 	if cfg.BatchType == derive.SpanBatchType {
-		co, err = derive.NewSpanChannelOut(rollupCfg.Genesis.L2Time, rollupCfg.L2ChainID, cfg.CompressorConfig.TargetOutputSize, cfg.CompressorConfig.CompressionAlgo, uint64(cfg.CompressorConfig.ZstdLevel))
+		co, err = derive.NewSpanChannelOut(rollupCfg.Genesis.L2Time, rollupCfg.L2ChainID, cfg.CompressorConfig.TargetOutputSize, cfg.CompressorConfig.CompressionAlgo, uint64(cfg.CompressorConfig.ZstdLevel), zstdPath)
 	} else {
 		co, err = derive.NewSingularChannelOut(c)
 	}
