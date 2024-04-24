@@ -284,6 +284,7 @@ func (co *SpanChannelOut) InputBytes() int {
 // ReadyBytes returns the total amount of compressed bytes that are ready to be output.
 // Span Channel Out does not provide early output, so this will always be 0 until the channel is closed or full
 func (co *SpanChannelOut) ReadyBytes() int {
+	//test
 	if co.closed || co.FullErr() != nil {
 		if co.compressorAlgo == "zlib" {
 			return co.zlibCompressed.Len()
