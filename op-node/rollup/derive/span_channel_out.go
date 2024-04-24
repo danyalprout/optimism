@@ -63,7 +63,7 @@ func (co *SpanChannelOut) setRandomID() error {
 	return err
 }
 
-func NewSpanChannelOut(genesisTimestamp uint64, chainID *big.Int, targetOutputSize uint64, compressorAlgo string, zstdLevel uint64) (*SpanChannelOut, error) {
+func NewSpanChannelOut(genesisTimestamp uint64, chainID *big.Int, targetOutputSize uint64, compressorAlgo string, zstdLevel uint64, zstdDictPath string) (*SpanChannelOut, error) {
 	c := &SpanChannelOut{
 		id:             ChannelID{},
 		frame:          0,
@@ -86,7 +86,16 @@ func NewSpanChannelOut(genesisTimestamp uint64, chainID *big.Int, targetOutputSi
 	}
 
 	// zstd compressor
-	c.zstdCompressor = zstd.NewWriterLevel(c.zstdCompressed, int(zstdLevel))
+	if zstdDictPath != "" {
+		// load the dictionary from the path
+		dict, err := os.ReadFile(zstdDictPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read zstd dictionary from %s: %w", zstdDictPath, err)
+		}
+		c.zstdCompressor = zstd.NewWriterLevelDict(c.zstdCompressed, int(zstdLevel), dict)
+	} else {
+		c.zstdCompressor = zstd.NewWriterLevel(c.zstdCompressed, int(zstdLevel))
+	}
 
 	return c, nil
 }
@@ -285,7 +294,7 @@ func (co *SpanChannelOut) InputBytes() int {
 // Span Channel Out does not provide early output, so this will always be 0 until the channel is closed or full
 func (co *SpanChannelOut) ReadyBytes() int {
 	//test2
-	
+
 	if co.closed || co.FullErr() != nil {
 		if co.compressorAlgo == "zlib" {
 			return co.zlibCompressed.Len()
