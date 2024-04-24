@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"os"
 
 	"github.com/DataDog/zstd"
 
@@ -48,6 +49,8 @@ type SpanChannelOut struct {
 	zstdCompressed *bytes.Buffer
 	zstdCompressor *zstd.Writer
 
+	file int
+
 	zstdLevel uint64
 }
 
@@ -62,16 +65,15 @@ func (co *SpanChannelOut) setRandomID() error {
 
 func NewSpanChannelOut(genesisTimestamp uint64, chainID *big.Int, targetOutputSize uint64, compressorAlgo string, zstdLevel uint64) (*SpanChannelOut, error) {
 	c := &SpanChannelOut{
-		id:         ChannelID{},
-		frame:      0,
-		spanBatch:  NewSpanBatch(genesisTimestamp, chainID),
-		rlp:        [2]*bytes.Buffer{{}, {}},
+		id:             ChannelID{},
+		frame:          0,
+		spanBatch:      NewSpanBatch(genesisTimestamp, chainID),
+		rlp:            [2]*bytes.Buffer{{}, {}},
 		zlibCompressed: &bytes.Buffer{},
 		zstdCompressed: &bytes.Buffer{},
-		target:     targetOutputSize,
+		target:         targetOutputSize,
 		compressorAlgo: compressorAlgo,
-		zstdLevel: zstdLevel,
-
+		zstdLevel:      zstdLevel,
 	}
 	var err error
 	if err = c.setRandomID(); err != nil {
@@ -228,6 +230,27 @@ func (co *SpanChannelOut) AddSingularBatch(batch *SingularBatch, seqNum uint64) 
 func (co *SpanChannelOut) compress() error {
 	co.compressorReset()
 	// write out this whole implementation for 3 different compressors
+
+	cofd := make([]byte, co.activeRLP().Len())
+	copy(cofd, co.activeRLP().Bytes())
+
+	writeToFile := func() {
+		file := fmt.Sprintf("/Users/danyal/training/%d", co.file)
+		co.file++
+		f, err := os.Create(file)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		n, err := f.Write(cofd)
+		if err != nil {
+			panic(err)
+		}
+		if n != len(cofd) {
+			panic("short write")
+		}
+	}
+
 	if co.compressorAlgo == "zlib" {
 		if _, err := co.zlibCompressor.Write(co.activeRLP().Bytes()); err != nil {
 			return err
@@ -235,12 +258,18 @@ func (co *SpanChannelOut) compress() error {
 		if err := co.zlibCompressor.Close(); err != nil {
 			return err
 		}
+		if uint64(co.zlibCompressed.Len()) >= co.target {
+			writeToFile()
+		}
 	} else if co.compressorAlgo == "zstd" {
 		if _, err := co.zstdCompressor.Write(co.activeRLP().Bytes()); err != nil {
 			return err
 		}
 		if err := co.zstdCompressor.Close(); err != nil {
 			return err
+		}
+		if uint64(co.zstdCompressed.Len()) >= co.target {
+			writeToFile()
 		}
 	}
 	co.checkFull()
