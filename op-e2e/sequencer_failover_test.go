@@ -14,8 +14,9 @@ import (
 // [Category: Initial Setup]
 // In this test, we test that we can successfully setup a working cluster.
 func TestSequencerFailover_SetupCluster(t *testing.T) {
-	sys, conductors := setupSequencerFailoverTest(t)
+	sys, conductors, cleanup := setupSequencerFailoverTest(t)
 	defer sys.Close()
+	defer cleanup()
 
 	require.Equal(t, 3, len(conductors), "Expected 3 conductors")
 	for _, con := range conductors {
@@ -27,8 +28,9 @@ func TestSequencerFailover_SetupCluster(t *testing.T) {
 // In this test, we test all rpcs exposed by conductor.
 func TestSequencerFailover_ConductorRPC(t *testing.T) {
 	ctx := context.Background()
-	sys, conductors := setupSequencerFailoverTest(t)
+	sys, conductors, cleanup := setupSequencerFailoverTest(t)
 	defer sys.Close()
+	defer cleanup()
 
 	// SequencerHealthy, Leader, AddServerAsVoter are used in setup already.
 
@@ -144,8 +146,9 @@ func TestSequencerFailover_ConductorRPC(t *testing.T) {
 // [Category: Sequencer Failover]
 // Test that the sequencer can successfully failover to a new sequencer once the active sequencer goes down.
 func TestSequencerFailover_ActiveSequencerDown(t *testing.T) {
-	sys, conductors := setupSequencerFailoverTest(t)
+	sys, conductors, cleanup := setupSequencerFailoverTest(t)
 	defer sys.Close()
+	defer cleanup()
 
 	ctx := context.Background()
 	leaderId, leader := findLeader(t, conductors)
