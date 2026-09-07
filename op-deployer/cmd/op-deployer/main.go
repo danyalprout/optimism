@@ -99,6 +99,12 @@ func run() error {
 	l1Dir := env("OUTPUT_DIR", "/output")
 	l2Dir := env("L2_OUTPUT_DIR", "/devnet/l2/configs")
 	shared := env("SHARED_DIR", l1Dir)
+	// Compose mounts L1 configs read-only at /genesis, then mounts L2 configs
+	// at /genesis/l2. The nested mountpoint must exist before container creation.
+	// Also repair setups completed by versions that omitted the empty directory.
+	if err := os.MkdirAll(filepath.Join(l1Dir, "l2"), 0755); err != nil {
+		return err
+	}
 	// Mark completion only after both chains and consensus keys have succeeded.
 	if _, err := os.Stat(filepath.Join(l1Dir, ".setup-complete")); err == nil {
 		for _, path := range []string{filepath.Join(l1Dir, "el/genesis.json"), filepath.Join(l1Dir, "cl/genesis.ssz"), filepath.Join(l2Dir, ".setup-complete")} {
