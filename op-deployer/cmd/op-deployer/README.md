@@ -6,8 +6,8 @@ for Compose devnets. The live deployment path used by Base system tests remains
 separate.
 
 ```sh
-go build -o base-devnet-setup ./op-deployer/cmd/base-devnet-setup
-go test ./op-deployer/cmd/base-devnet-setup
+go build -o op-deployer ./op-deployer/cmd/op-deployer
+go test ./op-deployer/cmd/op-deployer
 ```
 
 Run with the environment from Base's `setup-devnet` Compose service. Outputs are
@@ -25,10 +25,23 @@ environment, and validator data. Post-Denim schedules must align to whole second
 A completion marker is written only after both execution and consensus setup
 succeed. Completed setup is reused on restart.
 
-For fast startup, pre-extract contract artifacts during the image build:
+The runtime has no subcommands. `op-deployer --help` lists the supported flags:
+output directories, chain IDs, slot duration, activation admin, and the six
+upgrade-block settings. Existing Compose environment inputs provide role
+addresses, P2P keys, and upgrade-signal settings. No intent file, live RPC,
+deployment target, generic overrides, or checkpoint configuration is accepted.
+
+The deployment path directly executes the fixed single-chain stages. Optional
+alt-DA, additional dispute games, generic prefunding stages, interop/prestate,
+intermediate L1 sealing, and disk checkpoints are omitted. The fixed Go intent
+preserves the original Base parameters, including L2 dev-account funding.
+
+For fast startup, pre-extract contract artifacts during the image build using
+the build-only helper (do not install it in the runtime image):
 
 ```sh
-./base-devnet-setup extract-artifacts /artifacts
+go build -o extract-artifacts ./op-deployer/cmd/extract-artifacts
+./extract-artifacts /artifacts
 ```
 
 Set `BASE_DEVNET_ARTIFACTS` to the resulting `bundle-*/forge-artifacts` directory.
@@ -63,3 +76,8 @@ The Base templates and compiled upgrade-signal artifact were copied from
 `base/base`'s local devnet setup. The artifact uses solc 0.8.30 and the
 MockProtocolVersions contract. Keep it and its storage layout/upgrade IDs in sync
 with Base's contract when changing upgrade-signal behavior.
+
+The previous generic CLI and its command-specific integration tests were removed.
+Shared upstream contract/EVM libraries remain in the monorepo; this command does
+not import the generic apply/inspect/verify dispatcher.
+
