@@ -2,8 +2,8 @@
 
 Offline, single-chain Base devnet genesis generation in one process. Replaces
 `setup-l1.sh`, the genesis path of `setup-l2.sh`, and the `devnet-genesis` helper
-for Compose devnets. The live deployment path used by Base system tests remains
-separate.
+for Compose devnets and the standard Base system-test stack. Tests specifically
+covering live deployment use a separate upstream op-deployer image.
 
 ```sh
 go build -o op-deployer ./op-deployer/cmd/op-deployer
