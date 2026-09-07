@@ -80,4 +80,3 @@ with Base's contract when changing upgrade-signal behavior.
 The previous generic CLI and its command-specific integration tests were removed.
 Shared upstream contract/EVM libraries remain in the monorepo; this command does
 not import the generic apply/inspect/verify dispatcher.
-
